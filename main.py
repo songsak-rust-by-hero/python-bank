@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from decimal import Decimal
 from bank import Account
@@ -122,7 +122,7 @@ def transfer(from_name: str, to_name: str, amount: float):
     
     
 @app.get("/accounts/{name}")
-def get_account(name: str, limit: int = None):
+def get_account(name: str, limit: int | None = Query(default=None, ge=1)):
     if name not in accounts_db:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{name}'")
     
