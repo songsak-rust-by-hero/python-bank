@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship,Mapped, mapped_column
 from db import Base
+from decimal import Decimal
 
 
 class AccountModel(Base):
@@ -8,7 +9,7 @@ class AccountModel(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    balance = Column(Numeric(12, 2))
+    balance: Mapped[Decimal] = mapped_column(Numeric(12, 2))
 
     history = relationship("TransactionModel", back_populates="account")
 

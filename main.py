@@ -1,27 +1,36 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query,Depends
 from pydantic import BaseModel
 from decimal import Decimal
-from bank import Account
+from models import AccountModel, TransactionModel
+from db import get_db, Base, engine
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 app = FastAPI()
-accounts_db = {}
+Base.metadata.create_all(bind=engine)
 
 class account(BaseModel):
     name: str
     balance: float = 0.0
     
-@app.post("/accounts/")
-def create_account(data:account):
+class TransferRequest(BaseModel):
+    amount: Decimal    
     
-    if data.name in accounts_db:
+@app.post("/accounts/")
+def create_account(data:account, db: Session = Depends(get_db)):
+    
+    accounts = db.query(AccountModel).filter(AccountModel.name == data.name).first()
+    
+    if accounts:
         raise HTTPException(status_code=400, detail=f"บัญชี '{data.name}' มีอยู่แล้ว")
     
-    new_account = Account(
+    new_account = AccountModel(
         name = data.name,
         balance = Decimal(str(data.balance))
     )
-
-    accounts_db[data.name] = new_account
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
 
     return {
         "status": "success",
@@ -31,16 +40,28 @@ def create_account(data:account):
         }
     
 @app.post("/accounts/{name}/deposit")
-def deposit(name: str, amount: float):
-    if name not in accounts_db:
+def deposit(name: str, data: TransferRequest, db: Session =Depends(get_db)):
+    
+    account = db.query(AccountModel).filter(AccountModel.name == name).first()
+    
+    if not account:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{name}'")
+    
+    amount = data.amount
     
     if amount <= 0:
         raise HTTPException(status_code=400, detail="จำนวนเงินต้องมากกว่า 0")
     
-    account = accounts_db[name]
-    account.deposit(Decimal(str(amount)))
-    
+    account.balance += amount
+    tx =TransactionModel(
+        account_id = account.id,
+        message = f"ฝากเงิน {amount} บาท",
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(account)
+   
     return {
         "status": "success",
         "message": f"ฝากเงิน {amount} บาท สำเร็จ",
@@ -52,60 +73,86 @@ def deposit(name: str, amount: float):
     }
 
 @app.post("/accounts/{name}/withdraw")
-def withdraw(name: str, amount: float):
-    if name not in accounts_db:
+def withdraw(name: str, data: TransferRequest, db: Session = Depends(get_db)):
+    
+    account = db.query(AccountModel).filter(AccountModel.name == name).first()
+    
+    if not account:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{name}'")
     
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="จำนวนเงินต้องมากกว่า 0")
+    amount = data.amount
     
-    account = accounts_db[name]
-    
-
     if amount > account.balance:
-        raise HTTPException(status_code=400, detail=f"เงินไม่พอ! มี {account.balance} บาท แต่จะถอน {amount} บาท")
+        raise HTTPException(status_code=400, detail=f"เงินไม่พอ!")
     
-    account.withdraw(Decimal(str(amount)))
+    
+    account.balance -= amount
+    
+    
+    tx = TransactionModel(
+        account_id = account.id,
+        message = f"ถอนเงิน {amount} บาท",
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(account)
     
     return {
         "status": "success",
-        "message": f"ถอนเงิน {amount} บาท สำเร็จ",
-        "account": {
-            "name": account.name,
-            "balance": str(account.balance),
-            "history": account.history
-        }
-    }    
-    
-    
+        "balance": str(account.balance)
+    }
+
 @app.post("/accounts/{from_name}/transfer")
-def transfer(from_name: str, to_name: str, amount: float):
-    # เช็คบัญชีต้นทาง
-    if from_name not in accounts_db:
+def transfer(from_name: str,to_name: str, data: TransferRequest,db: Session = Depends(get_db)):
+
+    from_account = db.query(AccountModel).filter(AccountModel.name == from_name).first()
+
+    if not from_account:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{from_name}'")
+
     
-    # เช็คบัญชีปลายทาง
-    if to_name not in accounts_db:
+    to_account = db.query(AccountModel).filter(AccountModel.name == to_name).first()
+
+    if not to_account:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{to_name}'")
-    
-    # เช็คจำนวนเงิน
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="จำนวนเงินต้องมากกว่า 0")
-    
-    # เช็คโอนตัวเอง
+
+   
     if from_name == to_name:
         raise HTTPException(status_code=400, detail="ไม่สามารถโอนเข้าบัญชีตัวเองได้")
-    
-    from_account = accounts_db[from_name]
-    to_account = accounts_db[to_name]
-    
-    # เช็คเงินพอไหม
+
+    amount = data.amount
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="จำนวนเงินต้องมากกว่า 0")
+
     if amount > from_account.balance:
-        raise HTTPException(status_code=400, detail=f"เงินไม่พอ! มี {from_account.balance} บาท แต่จะโอน {amount} บาท")
+        raise HTTPException(
+            status_code=400,
+            detail=f"เงินไม่พอ! มี {from_account.balance} บาท แต่จะโอน {amount} บาท"
+        )
+
     
-    # โอนเงิน (ใช้ method transfer จาก bank.py)
-    from_account.transfer(to_account, Decimal(str(amount)))
+    from_account.balance -= amount
+    to_account.balance += amount
+
     
+    db.add(TransactionModel(
+        account_id=from_account.id,
+        message=f"โอนเงินไป {to_name} {amount}",
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ))
+
+    
+    db.add(TransactionModel(
+        account_id=to_account.id,
+        message=f"รับเงินจาก {from_name} {amount}",
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ))
+
+    
+    db.commit()
+
     return {
         "status": "success",
         "message": f"โอนเงิน {amount} บาท จาก {from_name} ไป {to_name} สำเร็จ",
@@ -116,29 +163,32 @@ def transfer(from_name: str, to_name: str, amount: float):
         "to": {
             "name": to_account.name,
             "balance": str(to_account.balance)
-        },
-        "history": from_account.history
-    }    
-    
+        }
+    }
     
 @app.get("/accounts/{name}")
-def get_account(name: str, limit: int | None = Query(default=None, ge=1)):
-    if name not in accounts_db:
+def get_account(name: str, limit: int | None = Query(default=None, ge=1), db: Session = Depends(get_db)):
+    
+    account = db.query(AccountModel).filter(AccountModel.name == name).first()
+    
+    if not account:
         raise HTTPException(status_code=404, detail=f"ไม่พบบัญชี '{name}'")
     
-    account = accounts_db[name]
+    transactions = db.query(TransactionModel).filter(
+        TransactionModel.account_id == account.id
+    ).all()
+    
+    history = [t.message for t in transactions]
     
     if limit:
-        history = account.history[-limit:]
-    else:
-        history = account.history
+        history = history[-limit:]
     
     return {
         "name": account.name,
         "balance": str(account.balance),
         "history": history,
-        "total_history": len(account.history)
-    }    
+        "total_history": len(transactions)
+    }
     
     
     
