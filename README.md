@@ -1,18 +1,84 @@
-cat > README.md << 'EOF'
-# Python Banking System 🏦
+```markdown
+# 🏦 Banking System API
 
-ระบบธนาคารง่ายๆ เขียนด้วย Python
+REST API สำหรับระบบธนาคารพื้นฐาน ด้วย FastAPI + SQLAlchemy
 
-## Features
+## 🚀 Features
+
+- สร้างบัญชีธนาคาร
 - ฝาก/ถอน/โอนเงิน
-- Transaction history
-- บันทึกข้อมูลลง JSON
-- Rollback เมื่อเกิด error
-- REST API ด้วย FastAPI
+- ประวัติการทำรายการ
+- Swagger UI Docs
+- Unit Test ครอบคลุม 6 กรณี
 
-## การใช้งาน
+## 🛠️ Tech Stack
+
+- Python 3.8+
+- FastAPI
+- SQLAlchemy ORM
+- SQLite
+- Pytest
+
+## ⚡ Quick Start
+
 ```bash
-pip install fastapi uvicorn
+# Clone
+git clone <your-repo-url>
+cd banking-api
+
+# Install
+pip install -r requirements.txt
+
+# Run
 uvicorn main:app --reload
+
+# Docs: http://localhost:8000/docs
 ```
-EOF
+
+## 📁 Project Structure
+
+```
+.
+├── main.py          # API endpoints
+├── models.py        # Database models (Account, Transaction)
+├── db.py           # Database connection
+├── test_main.py    # Unit tests (6 tests passing)
+├── requirements.txt
+├── Procfile        # For deployment
+├── app.db          # SQLite database
+└── .gitignore
+```
+
+## 📝 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/accounts/` | สร้างบัญชี |
+| POST | `/accounts/{name}/deposit` | ฝากเงิน |
+| POST | `/accounts/{name}/withdraw` | ถอนเงิน |
+| POST | `/accounts/{from}/transfer?to_name={to}` | โอนเงิน |
+| GET | `/accounts/{name}/history` | ประวัติรายการ |
+
+## 🧪 Testing
+
+```bash
+pytest -v
+```
+
+**ผลลัพธ์:** 6 tests passed ✅
+
+## 🚀 Deployment
+
+รองรับบน:
+- Railway
+- Render (via Procfile)
+
+[Railway Server] (https://python-bank-production.up.railway.app/docs)
+
+## 👨‍💻 Developer
+
+[Phet]  
+[GitHub](https://github.com/songsak-rust-by-hero)
+
+---
+
