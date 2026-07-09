@@ -1,4 +1,3 @@
-```markdown
 # 🏦 Banking System API
 
 REST API สำหรับระบบธนาคารพื้นฐาน ด้วย FastAPI + SQLAlchemy
@@ -73,12 +72,10 @@ pytest -v
 - Railway
 - Render (via Procfile)
 
-[Railway Server] (https://python-bank-production.up.railway.app/docs)
+[Railway Server](https://python-bank-production.up.railway.app/docs)
 
 ## 👨‍💻 Developer
 
-[Phet]  
+**Phet**  
 [GitHub](https://github.com/songsak-rust-by-hero)
-
----
-
+```
