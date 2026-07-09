@@ -44,7 +44,6 @@ uvicorn main:app --reload
 ├── test_main.py    # Unit tests (6 tests passing)
 ├── requirements.txt
 ├── Procfile        # For deployment
-├── app.db          # SQLite database
 └── .gitignore
 ```
 
@@ -56,7 +55,7 @@ uvicorn main:app --reload
 | POST | `/accounts/{name}/deposit` | ฝากเงิน |
 | POST | `/accounts/{name}/withdraw` | ถอนเงิน |
 | POST | `/accounts/{from}/transfer?to_name={to}` | โอนเงิน |
-| GET | `/accounts/{name}/history` | ประวัติรายการ |
+| GET | `/accounts/{name}` | ประวัติรายการ |
 
 ## 🧪 Testing
 
